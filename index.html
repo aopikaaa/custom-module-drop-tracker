@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Custom Module Drop Tracker</title>
+  <link rel="stylesheet" href="./styles.css?v=22">
+</head>
+<body>
+  <div class="page-shell">
+    <main class="layout">
+      <section class="left-rail">
+        <header class="left-header">
+          <p class="eyebrow">Custom Module Drop Tracker</p>
+          <h1>Drop Log</h1>
+        </header>
+
+        <section class="panel sidebar-panel">
+          <div class="sidebar-group">
+            <div class="sidebar-title">入力日</div>
+            <div class="editor-controls">
+              <label class="field grow">
+                <span>日付</span>
+                <input id="date-input" type="date">
+              </label>
+              <label class="toggle">
+                <input id="full-burst-toggle" type="checkbox">
+                <span class="toggle-ui" aria-hidden="true"></span>
+                <span>フルバーストデイ</span>
+              </label>
+            </div>
+            <div class="stacked-buttons">
+              <button class="ghost-button full-width" id="today-button" type="button">今日へ移動</button>
+              <button class="ghost-button full-width" id="clear-day-button" type="button">この日付のデータをクリア</button>
+            </div>
+          </div>
+
+          <div class="sidebar-group">
+            <div class="sidebar-title" id="editor-title">本日の入力</div>
+            <div class="slot-grid" id="slot-grid"></div>
+          </div>
+
+          <div class="sidebar-group">
+            <div class="sidebar-title">スプシ保存</div>
+            <div class="stacked-buttons">
+              <button class="ghost-button full-width attention" id="sync-upload-button" type="button">この日付をスプシに保存</button>
+            </div>
+          </div>
+
+          <div class="sidebar-group">
+            <div class="sidebar-title">データ管理</div>
+            <div class="stacked-buttons">
+              <button class="ghost-button full-width" id="export-button" type="button">スプシからJSONを書き出し</button>
+              <button class="ghost-button full-width" id="import-button" type="button">JSON/CSVからスプシに同期</button>
+              <input id="import-file-input" class="hidden-input" type="file" accept=".json,.csv,application/json,text/csv">
+            </div>
+          </div>
+
+          <div class="panel-footer">
+            <p id="save-status">ローカル保存済み</p>
+          </div>
+        </section>
+      </section>
+
+      <section class="right-rail">
+        <section class="panel topbar-panel">
+          <div class="topbar">
+            <div class="topbar-copy">
+              <p class="section-kicker">Workspace</p>
+              <h2>ユーザー切り替え</h2>
+            </div>
+            <div class="user-controls">
+              <div class="topbar-badges">
+                <div class="profile-chip" id="current-profile-chip">使用中: -</div>
+                <div class="user-switch-status" id="user-switch-status">未選択</div>
+              </div>
+              <label class="field user-field">
+                <span>ユーザー名</span>
+                <select id="user-id-select"></select>
+              </label>
+              <button class="ghost-button topbar-action" id="apply-user-button" type="button">ユーザ切り替え</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="stack">
+          <section class="panel board-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-kicker">Month</p>
+                <h2>月間サマリー</h2>
+              </div>
+              <label class="field compact">
+                <span>表示月</span>
+                <select id="month-select"></select>
+              </label>
+            </div>
+            <div class="stats-grid stats-grid-featured" id="monthly-stats"></div>
+          </section>
+
+          <section class="panel board-panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-kicker">Lifetime</p>
+                <h2>生涯サマリー</h2>
+              </div>
+            </div>
+            <div class="stats-grid stats-grid-featured" id="lifetime-stats"></div>
+          </section>
+        </section>
+
+        <section class="panel board-panel panel-history">
+          <div class="panel-header">
+            <div>
+              <p class="section-kicker">History</p>
+              <h2>記録一覧</h2>
+            </div>
+            <label class="field compact">
+              <span>表示期間</span>
+              <select id="history-month-select"></select>
+            </label>
+          </div>
+          <div class="history-list history-list-wide" id="history-list"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="./app-data.js?v=22"></script>
+  <script src="./backend-config.js?v=22"></script>
+  <script src="./app.js?v=22"></script>
+</body>
+</html>
