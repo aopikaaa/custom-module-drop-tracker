@@ -21,8 +21,8 @@
     selectedDate: todayIso(),
     selectedMonth: monthKey(todayIso()),
     historyBaseMonth: monthKey(todayIso()),
-    userId: "",
-    pendingUserId: "",
+    userId: loadUserId(),
+    pendingUserId: loadUserId(),
     userOptions: [],
     autoSyncTimer: null,
     dayWatcherTimer: null,
@@ -55,8 +55,9 @@
   initialize();
 
   async function initialize() {
-    state.records = [];
-    state.archives = [];
+    const localData = state.userId ? loadLocalData(state.userId) : { records: [], archives: [] };
+    state.records = mergeRecords([], localData.records);
+    state.archives = mergeArchives([], localData.archives);
     state.userOptions = loadUserOptions();
     state.selectedMonth = availableMonths().includes(state.selectedMonth) ? state.selectedMonth : latestMonth();
     state.historyBaseMonth = availableMonths().includes(state.historyBaseMonth) ? state.historyBaseMonth : latestMonth();
