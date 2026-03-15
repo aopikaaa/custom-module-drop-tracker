@@ -21,8 +21,8 @@
     selectedDate: todayIso(),
     selectedMonth: monthKey(todayIso()),
     historyBaseMonth: monthKey(todayIso()),
-    userId: loadUserId(),
-    pendingUserId: loadUserId(),
+    userId: "",
+    pendingUserId: "",
     userOptions: [],
     autoSyncTimer: null,
     dayWatcherTimer: null,
@@ -55,9 +55,8 @@
   initialize();
 
   async function initialize() {
-    const localData = loadLocalData();
-    state.records = mergeRecords(seedRecords(), localData.records);
-    state.archives = mergeArchives([], localData.archives);
+    state.records = [];
+    state.archives = [];
     state.userOptions = loadUserOptions();
     state.selectedMonth = availableMonths().includes(state.selectedMonth) ? state.selectedMonth : latestMonth();
     state.historyBaseMonth = availableMonths().includes(state.historyBaseMonth) ? state.historyBaseMonth : latestMonth();
@@ -70,9 +69,6 @@
     setUserSwitchStatus(state.userId ? "待機中" : "ユーザー未選択", state.userId ? "idle" : "error");
     startDayWatcher();
 
-    if (state.userId && BACKEND_CONFIG.autoSync && hasBackendConfig()) {
-      await syncDownload(true);
-    }
   }
 
   function attachEvents() {
@@ -159,15 +155,14 @@
     const options = buildUserOptions();
     const selectedValue = options.includes(state.pendingUserId)
       ? state.pendingUserId
-      : (options.includes(state.userId) ? state.userId : options[0] || "");
-    if (!state.userId && selectedValue) {
-      state.userId = selectedValue;
-    }
-    if (!state.pendingUserId && selectedValue) {
-      state.pendingUserId = selectedValue;
-    }
+      : (options.includes(state.userId) ? state.userId : "");
 
     elements.userIdSelect.innerHTML = "";
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "ユーザーを選択";
+    placeholder.selected = !selectedValue;
+    elements.userIdSelect.appendChild(placeholder);
     options.forEach((userId) => {
       const option = document.createElement("option");
       option.value = userId;
@@ -908,7 +903,7 @@
   function loadUserOptions() {
     const configured = Array.isArray(BACKEND_CONFIG.userOptions) ? BACKEND_CONFIG.userOptions : [];
     const remembered = loadRememberedUserOptions();
-    const merged = new Set([...configured, ...remembered, state.userId].map(sanitizeUserId).filter(Boolean));
+    const merged = new Set([...configured, ...remembered].map(sanitizeUserId).filter(Boolean));
     return Array.from(merged);
   }
 
@@ -934,7 +929,7 @@
   }
 
   function buildUserOptions() {
-    const options = new Set([...state.userOptions, state.userId].map(sanitizeUserId).filter(Boolean));
+    const options = new Set([...state.userOptions].map(sanitizeUserId).filter(Boolean));
     return Array.from(options).sort((left, right) => left.localeCompare(right, "ja"));
   }
 
