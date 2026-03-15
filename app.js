@@ -336,7 +336,7 @@
       {
         label: "モジュール合計",
         value: `${formatInteger(stats.totalModules)} (${formatInteger(stats.totalWithPieces)})`,
-        note: `期待値 ${stats.expectedModules.toFixed(2)}`,
+        note: `期待値 ${stats.expectedTotal.toFixed(2)}`,
         featured: true,
       },
       {
@@ -386,6 +386,7 @@
       totalModules,
       totalWithPieces: totalModules + Math.floor((challengeCount * PIECES_PER_CHALLENGE) / 100),
       expectedModules: challengeCount * DROP_RATE * expectedPerDrop(),
+      expectedTotal: challengeCount * DROP_RATE * expectedPerDrop() + (challengeCount * PIECES_PER_CHALLENGE) / 100,
       oneDrops,
       twoDrops,
       threeDrops,
@@ -430,6 +431,7 @@
       totalModules,
       totalWithPieces: totalModules + Math.floor(totalPieces / 100),
       expectedModules: challengeCount * DROP_RATE * expectedPerDrop(),
+      expectedTotal: challengeCount * DROP_RATE * expectedPerDrop() + totalPieces / 100,
       oneDrops,
       twoDrops,
       threeDrops,
@@ -1125,12 +1127,15 @@
     }
 
     const inputSlots = Array.isArray(record.slots) ? record.slots : [];
-    const isFullBurst = Boolean(record.isFullBurst || inputSlots.length > 3);
+    const slots = Array.from({ length: 6 }, (_, index) => Number(inputSlots[index] || 0));
+    const explicitFlag = record.isFullBurst === true || record.isFullBurst === 1 || record.isFullBurst === "1";
+    const inferredFlag = slots.slice(3).some((value) => Number(value || 0) > 0);
+    const isFullBurst = explicitFlag || inferredFlag;
 
     return {
       date,
       isFullBurst,
-      slots: normalizeSlots(inputSlots, isFullBurst ? 6 : 3),
+      slots: normalizeSlots(slots, isFullBurst ? 6 : 3),
     };
   }
 
