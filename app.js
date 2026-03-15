@@ -336,7 +336,7 @@
       {
         label: "モジュール合計",
         value: `${formatInteger(stats.totalModules)} (${formatInteger(stats.totalWithPieces)})`,
-        note: `期待値 ${stats.expectedTotal.toFixed(2)}`,
+        note: `期待値 ${stats.expectedModules.toFixed(2)}`,
         featured: true,
       },
       {
