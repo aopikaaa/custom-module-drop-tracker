@@ -27,6 +27,9 @@
     autoSyncTimer: null,
     dayWatcherTimer: null,
     needsSelectedDateSync: false,
+    recoveryBundle: null,
+    recoveryNeeded: false,
+    hasInFlightSync: false,
   };
 
   const elements = {
@@ -42,6 +45,7 @@
     historyList: document.getElementById("history-list"),
     todayButton: document.getElementById("today-button"),
     clearDayButton: document.getElementById("clear-day-button"),
+    recoverLocalButton: document.getElementById("recover-local-button"),
     exportButton: document.getElementById("export-button"),
     importButton: document.getElementById("import-button"),
     importFileInput: document.getElementById("import-file-input"),
@@ -58,15 +62,20 @@
     const localData = state.userId ? loadLocalData(state.userId) : { records: [], archives: [] };
     state.records = mergeRecords([], localData.records);
     state.archives = mergeArchives([], localData.archives);
+    setRecoveryBundle(state.userId, localData, false);
     state.userOptions = loadUserOptions();
     state.selectedMonth = availableMonths().includes(state.selectedMonth) ? state.selectedMonth : latestMonth();
     state.historyBaseMonth = availableMonths().includes(state.historyBaseMonth) ? state.historyBaseMonth : latestMonth();
     elements.dateInput.value = state.selectedDate;
     attachEvents();
+    attachUnloadWarning();
     renderUserSelect();
     syncEditorFromRecord();
     refreshSelectedDateSyncState();
     render();
+    if (state.userId && hasDataBundle(localData)) {
+      elements.saveStatus.textContent = "ローカルキャッシュを表示中です。必要なら『ローカル全件をスプシへ復旧』を押してください";
+    }
     setUserSwitchStatus(state.userId ? "待機中" : "ユーザー未選択", state.userId ? "idle" : "error");
     startDayWatcher();
 
@@ -127,6 +136,7 @@
     });
 
     elements.exportButton.addEventListener("click", exportRecords);
+    elements.recoverLocalButton.addEventListener("click", recoverLocalToSheets);
     elements.importButton.addEventListener("click", () => elements.importFileInput.click());
     elements.importFileInput.addEventListener("change", importRecords);
     elements.syncUploadButton.addEventListener("click", () => syncUpload(false));
@@ -137,9 +147,24 @@
     elements.applyUserButton.addEventListener("click", applyUser);
   }
 
+  function attachUnloadWarning() {
+    window.addEventListener("beforeunload", (event) => {
+      if (!shouldWarnBeforeUnload()) {
+        return;
+      }
+      event.preventDefault();
+      event.returnValue = "";
+    });
+  }
+
+  function shouldWarnBeforeUnload() {
+    return Boolean(state.hasInFlightSync);
+  }
+
   function render() {
     renderUserSelect();
     updateSyncUploadButton();
+    updateRecoveryButton();
     renderEditor();
     renderMonthSelect();
     renderHistoryMonthSelect();
@@ -150,6 +175,21 @@
 
   function updateSyncUploadButton() {
     elements.syncUploadButton.classList.toggle("attention", state.needsSelectedDateSync);
+  }
+
+  function updateRecoveryButton() {
+    if (!elements.recoverLocalButton) {
+      return;
+    }
+
+    const fallbackBundle = {
+      userId: state.userId,
+      records: state.records,
+      archives: state.archives,
+    };
+    const hasRecoverableData = hasDataBundle(state.recoveryBundle) || hasDataBundle(fallbackBundle);
+    elements.recoverLocalButton.disabled = !state.userId || !hasRecoverableData || !hasBackendConfig();
+    elements.recoverLocalButton.classList.toggle("attention", state.recoveryNeeded);
   }
 
   function renderUserSelect() {
@@ -543,6 +583,7 @@
     const localData = loadLocalData(nextUserId);
     state.records = mergeRecords(seedRecords(), localData.records);
     state.archives = mergeArchives([], localData.archives);
+    setRecoveryBundle(nextUserId, localData, false);
     state.selectedDate = todayIso();
     state.selectedMonth = latestMonth();
     state.historyBaseMonth = state.selectedMonth;
@@ -553,7 +594,11 @@
 
     if (hasBackendConfig()) {
       const success = await syncDownload(true);
-      setUserSwitchStatus(success ? "読み込み完了" : "読込失敗", success ? "success" : "error");
+      if (success === "fallback") {
+        setUserSwitchStatus("要復旧", "pending");
+      } else {
+        setUserSwitchStatus(success ? "読み込み完了" : "読込失敗", success ? "success" : "error");
+      }
       return;
     }
 
@@ -606,6 +651,7 @@
 
       state.records = mergeRecords([], parsed.records);
       state.archives = mergeArchives([], parsed.archives || []);
+      setRecoveryBundle(state.userId, { records: state.records, archives: state.archives }, false);
       state.selectedDate = todayIso();
       state.selectedMonth = latestMonth();
       state.historyBaseMonth = state.selectedMonth;
@@ -657,6 +703,7 @@
       }
 
       markSelectedDateSynced();
+      setRecoveryBundle(state.userId, { records: state.records, archives: state.archives }, false);
       render();
 
       if (!isSilent) {
@@ -690,21 +737,40 @@
         throw new Error(result.error || "load_failed");
       }
 
-      state.records = mergeRecords([], result.records);
-      state.archives = mergeArchives([], result.archives || []);
+      const remoteRecords = mergeRecords([], result.records);
+      const remoteArchives = mergeArchives([], result.archives || []);
+      const localFallback = copyDataBundle({ userId: state.userId, records: state.records, archives: state.archives });
+
+      if (!hasDataBundle({ records: remoteRecords, archives: remoteArchives }) && hasDataBundle(localFallback)) {
+        state.records = mergeRecords([], localFallback.records);
+        state.archives = mergeArchives([], localFallback.archives);
+        state.selectedDate = todayIso();
+        state.selectedMonth = latestMonth();
+        state.historyBaseMonth = state.selectedMonth;
+        setRecoveryBundle(state.userId, localFallback, true);
+        persist(true);
+        refreshSelectedDateSyncState();
+        syncEditorFromRecord();
+        render();
+        elements.saveStatus.textContent = "スプシが空だったためローカルデータを保持しています。『ローカル全件をスプシへ復旧』を押してください";
+        return "fallback";
+      }
+
+      state.records = remoteRecords;
+      state.archives = remoteArchives;
       state.selectedDate = todayIso();
       state.selectedMonth = latestMonth();
       state.historyBaseMonth = state.selectedMonth;
+      setRecoveryBundle(state.userId, { records: remoteRecords, archives: remoteArchives }, false);
       persist(true);
       markSelectedDateSynced();
       refreshSelectedDateSyncState();
       syncEditorFromRecord();
       render();
-      return true;
-
       if (!isSilent) {
         elements.saveStatus.textContent = `スプシをアプリへ反映しました (${state.userId})`;
       }
+      return true;
     } catch (error) {
       if (!isSilent) {
         window.alert(`スプシ読込に失敗しました: ${String(error)}`);
@@ -712,6 +778,83 @@
     } finally {
       setBusy(false);
     }
+  }
+
+  async function syncUploadBundle(bundle, isSilent, successMessage) {
+    if (!assertBackendReady()) {
+      return false;
+    }
+
+    try {
+      setBusy(true);
+      const payload = {
+        token: BACKEND_CONFIG.apiToken,
+        userId: state.userId,
+        records: Array.isArray(bundle.records) ? bundle.records : [],
+        archives: Array.isArray(bundle.archives) ? bundle.archives : [],
+      };
+
+      const response = await fetch(BACKEND_CONFIG.appsScriptUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+
+      if (!response.ok || !result.ok) {
+        throw new Error(result.error || "sync_failed");
+      }
+
+      setRecoveryBundle(state.userId, bundle, false);
+      markSelectedDateSynced();
+      refreshSelectedDateSyncState();
+      render();
+      if (!isSilent) {
+        elements.saveStatus.textContent = successMessage;
+      }
+      return true;
+    } catch (error) {
+      if (!isSilent) {
+        window.alert(`ローカル復旧に失敗しました: ${String(error)}`);
+      }
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function recoverLocalToSheets() {
+    if (!assertBackendReady()) {
+      return false;
+    }
+
+    const bundle = state.recoveryNeeded && state.recoveryBundle && state.recoveryBundle.userId === state.userId
+      ? copyDataBundle(state.recoveryBundle)
+      : copyDataBundle({ userId: state.userId, records: state.records, archives: state.archives });
+
+    if (!hasDataBundle(bundle)) {
+      window.alert("復旧できるローカルデータが見つかりませんでした。");
+      return false;
+    }
+
+    state.records = mergeRecords([], bundle.records);
+    state.archives = mergeArchives([], bundle.archives);
+    setRecoveryBundle(state.userId, bundle, false);
+    persist(true);
+    syncEditorFromRecord();
+    render();
+
+    const restored = await syncUploadBundle(
+      bundle,
+      false,
+      `ローカル全件をスプシへ復旧しました (${state.userId})`,
+    );
+
+    if (restored) {
+      setUserSwitchStatus("復旧済み", "success");
+    }
+
+    return restored;
   }
 
   function scheduleAutoSync() {
@@ -744,8 +887,10 @@
   }
 
   function setBusy(isBusy) {
+    state.hasInFlightSync = Boolean(isBusy);
     [
       elements.syncUploadButton,
+      elements.recoverLocalButton,
       elements.exportButton,
       elements.importButton,
       elements.applyUserButton,
@@ -872,6 +1017,32 @@
     if (!skipStatusUpdate) {
       elements.saveStatus.textContent = `ローカル保存済み (${new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })})`;
     }
+  }
+
+  function setRecoveryBundle(userId, data, needsRecovery) {
+    const normalized = copyDataBundle({
+      userId,
+      records: data && Array.isArray(data.records) ? data.records : [],
+      archives: data && Array.isArray(data.archives) ? data.archives : [],
+    });
+    state.recoveryBundle = hasDataBundle(normalized) ? normalized : null;
+    state.recoveryNeeded = Boolean(needsRecovery && state.recoveryBundle);
+  }
+
+  function copyDataBundle(bundle) {
+    return {
+      userId: sanitizeUserId(bundle && bundle.userId),
+      records: mergeRecords([], bundle && Array.isArray(bundle.records) ? bundle.records : []),
+      archives: mergeArchives([], bundle && Array.isArray(bundle.archives) ? bundle.archives : []),
+    };
+  }
+
+  function hasDataBundle(bundle) {
+    return Boolean(
+      bundle
+      && (Array.isArray(bundle.records) && bundle.records.length
+        || Array.isArray(bundle.archives) && bundle.archives.length)
+    );
   }
 
   function loadLocalData(userId = state.userId) {

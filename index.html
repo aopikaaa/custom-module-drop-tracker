@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Custom Module Drop Tracker</title>
   <link rel="icon" href="./favicon.ico" sizes="any">
-  <link rel="stylesheet" href="./styles.css?v=22">
+  <link rel="stylesheet" href="./styles.css?v=24">
 </head>
 <body>
   <div class="page-shell">
@@ -51,6 +51,7 @@
           <div class="sidebar-group">
             <div class="sidebar-title">データ管理</div>
             <div class="stacked-buttons">
+              <button class="ghost-button full-width" id="recover-local-button" type="button">ローカル全件をスプシへ復旧</button>
               <button class="ghost-button full-width" id="export-button" type="button">スプシからJSONを書き出し</button>
               <button class="ghost-button full-width" id="import-button" type="button">JSON/CSVからスプシに同期</button>
               <input id="import-file-input" class="hidden-input" type="file" accept=".json,.csv,application/json,text/csv">
@@ -127,8 +128,8 @@
     </main>
   </div>
 
-  <script src="./app-data.js?v=22"></script>
-  <script src="./backend-config.js?v=22"></script>
-  <script src="./app.js?v=22"></script>
+  <script src="./app-data.js?v=24"></script>
+  <script src="./backend-config.js?v=24"></script>
+  <script src="./app.js?v=24"></script>
 </body>
 </html>
